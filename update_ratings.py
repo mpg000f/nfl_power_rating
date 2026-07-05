@@ -33,19 +33,23 @@ def blend_with_preseason(in_season: pd.DataFrame, season: int,
     if not baseline_path.exists():
         return in_season
 
-    preseason = pd.read_csv(baseline_path)[["team", "power_rating"]]
-    preseason = preseason.rename(columns={"power_rating": "preseason_rating"})
-    df = in_season.merge(preseason, on="team", how="left")
+    preseason = pd.read_csv(baseline_path)
+    blend_cols = [c for c in ("power_rating", "off_pts", "def_pts")
+                  if c in preseason.columns and c in in_season.columns]
+    renames = {c: f"pre_{c}" for c in blend_cols}
+    df = in_season.merge(preseason[["team"] + blend_cols].rename(columns=renames),
+                         on="team", how="left")
 
     # Teams without a preseason baseline use pure in-season ratings
     w = (df["games_played"] * per_game_step).clip(upper=1.0)
-    df["blend_weight"] = w.where(df["preseason_rating"].notna(), 1.0).round(3)
-    df["power_rating"] = (
-        df["blend_weight"] * df["power_rating"]
-        + (1 - df["blend_weight"]) * df["preseason_rating"].fillna(0.0)
-    ).round(3)
+    df["blend_weight"] = w.where(df["pre_power_rating"].notna(), 1.0).round(3)
+    for col in blend_cols:
+        df[col] = (
+            df["blend_weight"] * df[col]
+            + (1 - df["blend_weight"]) * df[f"pre_{col}"].fillna(0.0)
+        ).round(3)
 
-    df = df.drop(columns=["preseason_rating"])
+    df = df.drop(columns=[f"pre_{c}" for c in blend_cols])
     df = df.sort_values("power_rating", ascending=False).reset_index(drop=True)
     df["rank"] = range(1, len(df) + 1)
 

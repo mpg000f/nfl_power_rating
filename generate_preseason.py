@@ -194,6 +194,9 @@ def apply_qb_adjustments(blended: pd.DataFrame, qb: pd.DataFrame | None) -> pd.D
     print(f"  Applied QB/situation adjustments (sum {df['qb_adj'].sum():+.1f}, "
           f"range {df['qb_adj'].min():+.1f} to {df['qb_adj'].max():+.1f})")
     df["power_rating"] = df["power_rating"] + df["qb_adj"]
+    # QB/situation shocks are offensive by nature — keep components summing
+    if "off_final" in df.columns:
+        df["off_final"] = df["off_final"] + df["qb_adj"]
     return df
 
 
@@ -211,8 +214,11 @@ def build_preseason_ratings(target_year: int,
 
     # Reweight offense vs defense: offense is more repeatable year to year.
     # (x2 keeps a 50/50 split identical to the plain off+def sum.)
-    blended["power_rating"] = 2 * (off_weight * blended["off_pts"]
-                                   + (1 - off_weight) * blended["def_pts"])
+    # off_final/def_final track the displayed components through every
+    # subsequent transform so they always sum to power_rating.
+    blended["off_final"] = 2 * off_weight * blended["off_pts"]
+    blended["def_final"] = 2 * (1 - off_weight) * blended["def_pts"]
+    blended["power_rating"] = blended["off_final"] + blended["def_final"]
     print(f"  Reweighted components: {off_weight:.0%} offense / {1 - off_weight:.0%} defense")
 
     # Rescale the blend back to the in-season spread before adding QB points,
@@ -226,16 +232,21 @@ def build_preseason_ratings(target_year: int,
 
     raw_std = blended["power_rating"].std()
     scale = target_std / raw_std if raw_std > 0 else 1.0
-    blended["power_rating"] = (blended["power_rating"] - blended["power_rating"].mean()) * scale
+    blended["off_final"] = (blended["off_final"] - blended["off_final"].mean()) * scale
+    blended["def_final"] = (blended["def_final"] - blended["def_final"].mean()) * scale
+    blended["power_rating"] = blended["off_final"] + blended["def_final"]
     print(f"  Rescaled blend: std {raw_std:.2f} -> {target_std:.2f}")
 
     df = apply_qb_adjustments(blended, qb)
 
     # Recenter so the average team is 0 (QB adjustments don't sum to zero)
-    df["power_rating"] = df["power_rating"] - df["power_rating"].mean()
+    df["off_final"] = df["off_final"] - df["off_final"].mean()
+    df["def_final"] = df["def_final"] - df["def_final"].mean()
 
     # Compress the preseason spread toward the mean
-    df["power_rating"] = df["power_rating"] * shrink
+    df["off_final"] = df["off_final"] * shrink
+    df["def_final"] = df["def_final"] * shrink
+    df["power_rating"] = df["off_final"] + df["def_final"]
     print(f"  Shrunk final spread by x{shrink:.2f} (std {df['power_rating'].std():.2f})")
 
     df = df.sort_values("power_rating", ascending=False).reset_index(drop=True)
@@ -249,6 +260,8 @@ def build_preseason_ratings(target_year: int,
         "wins": 0,
         "losses": 0,
         "ties": 0,
+        "off_pts": df["off_final"].round(2),
+        "def_pts": df["def_final"].round(2),
     })
     for col in STAT_COLS:
         output[col] = df[col].round(3)

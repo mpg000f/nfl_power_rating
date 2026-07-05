@@ -333,13 +333,24 @@ def calculate_power_rating(adjusted: pd.DataFrame, raw_stats: pd.DataFrame, conf
         config.weight_success_rate * df['success_points']
     )
 
+    # Offensive/defensive point components (off_pts + def_pts = power_rating)
+    off_comp = (config.weight_epa * config.epa_to_points * df['adj_off_epa'] +
+                config.weight_success_rate * config.success_to_points * df['adj_off_success'])
+    def_comp = -(config.weight_epa * config.epa_to_points * df['adj_def_epa'] +
+                 config.weight_success_rate * config.success_to_points * df['adj_def_success'])
+    df['off_pts'] = off_comp - off_comp.mean()
+    df['def_pts'] = def_comp - def_comp.mean()
+
     # Center so average team = 0
     df['power_rating'] = df['power_rating'] - df['power_rating'].mean()
 
     # Normalize to target standard deviation for consistent scale across years
     current_std = df['power_rating'].std()
     if current_std > 0:
-        df['power_rating'] = df['power_rating'] * (config.target_std / current_std)
+        scale = config.target_std / current_std
+        df['power_rating'] = df['power_rating'] * scale
+        df['off_pts'] = df['off_pts'] * scale
+        df['def_pts'] = df['def_pts'] * scale
 
     # Rank
     df = df.sort_values('power_rating', ascending=False).reset_index(drop=True)
@@ -441,6 +452,8 @@ def run_power_ratings(season: int, config: RatingConfig = None) -> pd.DataFrame:
     # Select output columns
     output_cols = [
         'rank', 'team', 'power_rating', 'record', 'wins', 'losses', 'ties',
+        # Point components (sum to power_rating)
+        'off_pts', 'def_pts',
         # Adjusted stats
         'adj_off_epa', 'adj_def_epa', 'adj_epa_margin',
         'adj_off_success', 'adj_def_success', 'adj_success_margin',
@@ -453,7 +466,8 @@ def run_power_ratings(season: int, config: RatingConfig = None) -> pd.DataFrame:
     result = ratings[output_cols].copy()
 
     # Round for display
-    for col in ['power_rating', 'adj_off_epa', 'adj_def_epa', 'adj_epa_margin',
+    for col in ['power_rating', 'off_pts', 'def_pts',
+                'adj_off_epa', 'adj_def_epa', 'adj_epa_margin',
                 'raw_off_epa', 'raw_def_epa', 'raw_epa_margin']:
         result[col] = result[col].round(3)
     for col in ['adj_off_success', 'adj_def_success', 'adj_success_margin',
