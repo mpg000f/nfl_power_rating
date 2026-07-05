@@ -45,55 +45,53 @@ def get_logo(team: str):
 def make_graphic(season: int, output: Path):
     df = pd.read_csv(RATINGS_DIR / f"ratings_{season}.csv")
     df = df.sort_values("rank").reset_index(drop=True)
-    n = len(df)
+    per_col = 16
 
-    fig, ax = plt.subplots(figsize=(6.75, 12.0), dpi=160)
+    fig, ax = plt.subplots(figsize=(6.75, 8.5), dpi=160)
     fig.patch.set_facecolor(BG)
     ax.set_facecolor(BG)
 
-    lim = float(np.ceil(df["power_rating"].abs().max() + 0.5))
+    lim = float(df["power_rating"].abs().max())
     cmap = plt.get_cmap("RdYlGn")
     norm = plt.Normalize(-lim, lim)
 
     for i, row in df.iterrows():
-        y = n - 1 - i
-        if i % 2 == 0:
-            ax.axhspan(y - 0.5, y + 0.5, color=ROW_A, zorder=0)
+        col = i // per_col
+        y = per_col - 1 - (i % per_col)
+        x0 = col * 1.0
+
+        if (i % per_col) % 2 == 0:
+            ax.add_patch(plt.Rectangle((x0 + 0.01, y - 0.5), 0.97, 1.0,
+                                       color=ROW_A, zorder=0))
 
         r = row["power_rating"]
-        ax.barh(y, r, height=0.62, color=cmap(norm(r)), zorder=2)
+        ax.text(x0 + 0.075, y, f"{row['rank']}", ha="right", va="center",
+                fontsize=10.5, color=MUTED, zorder=3)
 
-        # Rank + team on the left margin
-        ax.text(-lim - 3.4, y, f"{row['rank']}", ha="right", va="center",
-                fontsize=8.5, color=MUTED, zorder=3)
-        ax.text(-lim - 1.4, y, row["team"], ha="left", va="center",
-                fontsize=9, color=TEXT, fontweight="bold", zorder=3)
-
-        # Normalize zoom by native resolution (ESPN serves a few odd sizes)
         img = get_logo(row["team"])
-        zoom = 26.0 / max(img.shape[:2])
+        zoom = 34.0 / max(img.shape[:2])
         ab = AnnotationBbox(OffsetImage(img, zoom=zoom),
-                            (-lim - 2.6, y), frameon=False, zorder=3)
+                            (x0 + 0.155, y), frameon=False, zorder=3)
         ax.add_artist(ab)
 
-        # Rating value just past the bar tip
-        off = 0.25 if r >= 0 else -0.25
-        ax.text(r + off, y, f"{r:+.1f}", ha="left" if r >= 0 else "right",
-                va="center", fontsize=8.5, color=TEXT, zorder=3)
+        ax.text(x0 + 0.25, y, row["team"], ha="left", va="center",
+                fontsize=12, color=TEXT, fontweight="bold", zorder=3)
+        ax.text(x0 + 0.95, y, f"{r:+.1f}", ha="right", va="center",
+                fontsize=12, color=cmap(norm(r)), fontweight="bold", zorder=3)
 
-    ax.axvline(0, color=MUTED, lw=0.8, alpha=0.6, zorder=1)
-    ax.set_xlim(-lim - 4.2, lim + 1.6)
-    ax.set_ylim(-0.6, n - 0.4)
+    ax.axvline(1.0, color=MUTED, lw=0.6, alpha=0.35, zorder=1)
+    ax.set_xlim(0, 2.0)
+    ax.set_ylim(-0.65, per_col - 0.35)
     ax.axis("off")
 
     fig.suptitle(f"{season} NFL PRESEASON POWER RATINGS",
-                 fontsize=15.5, fontweight="bold", color=TEXT, y=0.975)
+                 fontsize=15.5, fontweight="bold", color=TEXT, y=0.965)
     ax.set_title("Expected point spread vs. an average team on a neutral field",
-                 fontsize=8.5, color=MUTED, pad=14)
-    fig.text(0.5, 0.012, "mpg000f.github.io/cbb_power_rating",
+                 fontsize=8.5, color=MUTED, pad=12)
+    fig.text(0.5, 0.015, "mpg000f.github.io/cbb_power_rating",
              ha="center", fontsize=8, color=MUTED)
 
-    fig.tight_layout(rect=[0, 0.02, 1, 0.96])
+    fig.tight_layout(rect=[0, 0.025, 1, 0.95])
     fig.savefig(output, facecolor=BG, bbox_inches="tight", pad_inches=0.25)
     print(f"Saved {output}")
 
