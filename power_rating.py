@@ -17,7 +17,10 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from typing import Optional
-import nfl_data_py as nfl
+try:
+    import nfl_data_py as nfl
+except ImportError:
+    nfl = None
 
 
 @dataclass
@@ -87,6 +90,8 @@ def load_pbp_data(seasons: list[int]) -> pd.DataFrame:
     all_pbp = []
     for season in seasons:
         try:
+            if nfl is None:
+                raise ImportError("nfl_data_py is unavailable")
             pbp = nfl.import_pbp_data([season], downcast=False)
             all_pbp.append(pbp)
             print(f"  Loaded {len(pbp):,} plays for {season} via nfl_data_py")
@@ -371,13 +376,15 @@ def calculate_records(season: int) -> pd.DataFrame:
     }
 
     try:
+        if nfl is None:
+            raise ImportError("nfl_data_py is unavailable")
         schedules = nfl.import_schedules([season])
         games = schedules[schedules['home_score'].notna()].copy()
     except Exception as e:
         # Fallback to direct download
         print(f"  nfl_data_py schedules failed, trying direct download...")
-        url = f'https://github.com/nflverse/nflverse-data/releases/download/schedules/schedules.parquet'
-        schedules = pd.read_parquet(url)
+        url = 'https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv'
+        schedules = pd.read_csv(url, low_memory=False)
         schedules = schedules[schedules['season'] == season]
         games = schedules[schedules['home_score'].notna()].copy()
 
