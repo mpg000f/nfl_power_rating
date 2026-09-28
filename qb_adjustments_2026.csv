@@ -1,33 +1,33 @@
-Team,Quarterback,Point Spread Rating QB,YoY adjustment,Situation adj,Off t1 weight,Notes
-ARI,J. Brissett,0.5,-1.5,0,,Murray released (signed MIN); Brissett bridges for 3rd-round rookie Carson Beck
-ATL,M. Penix Jr.,2,0,0,,Full healthy season after partial ACL cut 2025 short; Tua signed as insurance
-BAL,L. Jackson,6.5,0,0,0.5,Same starter
-BUF,J. Allen,6.5,0,0,,Same starter; PFF #1 QB entering 2026
-CAR,B. Young,3.5,0,0,,Same starter
-CHI,C. Williams,3,0,0,,Same starter
-CIN,J. Burrow,6,0,0,0.2,Same starter
-CLE,D. Watson,1,0,0,,Watson/Shedeur Sanders toss-up; neither projects to move the rating
-DAL,D. Prescott,4.5,0,0,0.95,Same starter
-DEN,B. Nix,4,0,0,,Same starter
-DET,J. Goff,4,0,0,,Same starter
-GB,J. Love,4,0,0,,Same starter
-HOU,C. Stroud,4.5,0,0,,Same starter
-IND,G. Minshew,0,-2,0,,Daniel Jones (torn Achilles Dec 2025) out until mid-late season; Minshew starts
-JAX,T. Lawrence,3,0,0,0.85,Same starter
-KC,P. Mahomes,6.5,1,0,0.7,Back from W15 ACL/LCL tear; upgrade over late-2025 backup play baked into the data
-LA,M. Stafford,5,0,0,,Same starter
-LAC,J. Herbert,5,0,0,,Same starter
-LV,K. Cousins,1,3,0,,Geno traded to NYJ; Cousins bridges until #1 overall pick Mendoza takes over ~W5-8
-MIA,M. Willis,1,-2,-1,0.9,Tua left for ATL plus coaching change; offense resets around Willis
-MIN,K. Murray,3,2,0,,Murray (league-min deal) heavy favorite over McCarthy who struggled in 2025
-NE,D. Maye,6,0,0,0.85,Same starter; Maye's 2025 breakout is the real level so 2024 rookie year barely counts
-NO,T. Shough,1.5,1.5,0,,Full season of Shough (5-3 as starter) vs the 0-6 Rattler start baked into 2025
-NYG,J. Winston,0.5,0,0,,Dart out for the regular season with a knee injury; Winston is the announced starter
-NYJ,G. Smith,2,1,0,,Upgrade over 2025 Fields/Taylor/Cook carousel
-PHI,J. Hurts,4.5,0,0,,Same starter
-PIT,A. Rodgers,2.5,0,0,,Same starter (re-signed)
-SEA,S. Darnold,4.5,0,0,,Same starter
-SF,B. Purdy,3.5,0,0,0.65,Same starter
-TB,B. Mayfield,3.5,0,0,,Same starter
-TEN,C. Ward,2,0,0,,Same starter
-WAS,J. Daniels,5,0,0,0.65,Same starter
+Team,Preseason QB,Current QB,Yahoo Starter,Yahoo Backup,Starter-backup ATS,YoY adjustment,Situation adj,Off t1 weight,Manual lineup delta,Notes
+ARI,Jacoby Brissett,Jacoby Brissett,Jacoby Brissett,Gardner Minshew,1.68,-1.5,0,,,Murray released; Brissett bridges for Carson Beck
+ATL,Michael Penix Jr.,Michael Penix Jr.,Tua Tagovailoa,Michael Penix Jr.,1.02,0,0,,,Penix was the model's preseason expectation; Yahoo pair therefore does not create a penalty
+BAL,Lamar Jackson,Lamar Jackson,Lamar Jackson,Tyler Huntley,5.89,0,0,0.5,,Same starter
+BUF,Josh Allen,Josh Allen,Josh Allen,Kyle Allen,7.23,0,0,,,Same starter
+CAR,Bryce Young,Bryce Young,Bryce Young,Kenny Pickett,2.98,0,0,,,Same starter
+CHI,Caleb Williams,Caleb Williams,Caleb Williams,Tyson Bagent,4.84,0,0,,,Same starter
+CIN,Joe Burrow,Joe Burrow,Joe Burrow,Joe Flacco,4.89,0,0,0.2,,2025 injury-distorted offense heavily downweighted
+CLE,Deshaun Watson,Deshaun Watson,Deshaun Watson,Shedeur Sanders,1.70,0,0,,,Same preseason/current starter
+DAL,Dak Prescott,Dak Prescott,Dak Prescott,Sam Howell,5.59,0,0,0.95,,Same starter
+DEN,Bo Nix,Bo Nix,Bo Nix,Jarrett Stidham,4.30,0,0,,,Same starter
+DET,Jared Goff,Jared Goff,Jared Goff,Josh Dobbs,5.25,0,0,,,Same starter
+GB,Jordan Love,Jordan Love,Jordan Love,Tyrod Taylor,5.07,0,0,,,Same starter
+HOU,C.J. Stroud,C.J. Stroud,C.J. Stroud,Davis Mills,4.05,0,0,,,Same starter
+IND,Gardner Minshew,Gardner Minshew,Daniel Jones,Riley Leonard,3.11,-2,0,,,Minshew was the model's preseason expectation; Yahoo pair therefore does not create a penalty
+JAX,Trevor Lawrence,Trevor Lawrence,Trevor Lawrence,Quinn Ewers,4.75,0,0,0.85,,Same starter
+KC,Patrick Mahomes,Patrick Mahomes,Patrick Mahomes,Justin Fields,6.32,1,0,0.7,,Post-injury transition correction only; no absolute QB anchor
+LA,Matthew Stafford,Matthew Stafford,Matthew Stafford,Ty Simpson,6.16,0,0,,,Same starter
+LAC,Justin Herbert,Justin Herbert,Justin Herbert,Trey Lance,5.65,0,0,,,Same starter
+LV,Kirk Cousins,Kirk Cousins,Kirk Cousins,Fernando Mendoza,2.11,3,0,,,Transition from Geno to Cousins
+MIA,Malik Willis,Malik Willis,Malik Willis,Kyle McCord,3.14,-2,-1,0.9,,Tua departure and coaching reset
+MIN,Kyler Murray,Kyler Murray,Kyler Murray,J.J. McCarthy,3.05,2,0,,,Transition to Murray
+NE,Drake Maye,Drake Maye,Drake Maye,Tommy DeVito,5.93,0,0,0.85,,2025 breakout emphasized through historical weighting
+NO,Tyler Shough,Tyler Shough,Tyler Shough,Spencer Rattler,2.57,1.5,0,,,Full season transition adjustment
+NYG,Jaxson Dart,Jameis Winston,Jaxson Dart,Jameis Winston,2.45,0,0,,,Dart out several weeks; Yahoo starter-to-backup penalty applies
+NYJ,Geno Smith,Geno Smith,Geno Smith,Cade Klubnik,3.32,1,0,,,Transition from 2025 QB carousel
+PHI,Jalen Hurts,Jalen Hurts,Jalen Hurts,Tanner McKee,5.25,0,0,,,Same starter
+PIT,Aaron Rodgers,Aaron Rodgers,Aaron Rodgers,Mason Rudolph,3.20,0,0,,,Same starter
+SEA,Sam Darnold,Sam Darnold,Sam Darnold,Drew Lock,4.59,0,0,,,Same starter
+SF,Brock Purdy,Brock Purdy,Brock Purdy,Mac Jones,3.25,0,0,0.65,,Same starter
+TB,Baker Mayfield,Baker Mayfield,Baker Mayfield,Jalon Daniels,4.41,0,0,,,Same starter
+TEN,Cam Ward,Cam Ward,Cam Ward,Mitchell Trubisky,2.16,0,0,,,Same starter
+WAS,Jayden Daniels,Jayden Daniels,Jayden Daniels,Marcus Mariota,5.00,0,0,0.65,,Same starter

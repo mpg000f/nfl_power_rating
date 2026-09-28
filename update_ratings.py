@@ -4,13 +4,14 @@ Update NFL Power Ratings
 
 Blends in-season ratings with a preseason baseline early in the year.
 The nonlinear curves react somewhat faster to offensive evidence while
-regressing volatile defensive samples more heavily. Both retain a small
-preseason prior throughout the year. With the backtested offensive scale:
-  - 1 game:  16.6% in-season
-  - 2 games: 30.5% in-season
-  - 4 games: 51.7% in-season
-  - 8 games: 76.7% in-season
-  - 17+ games: capped at 95% in-season
+regressing volatile defensive samples more heavily. Both retain a 5%
+preseason prior after reaching the 95% current-season cap. With the offensive
+scale:
+  - 1 game:  19.9% in-season
+  - 2 games: 35.9% in-season
+  - 4 games: 58.9% in-season
+  - 8 games: 83.1% in-season
+  - 14+ games: capped at 95% in-season
 
 If no preseason baseline exists (ratings_{season}_preseason.csv), uses
 pure in-season ratings — so regenerating historical seasons is unaffected.
@@ -29,7 +30,7 @@ from datetime import datetime
 RATINGS_DIR = Path(__file__).parent / "historical_ratings"
 
 
-def current_season_weight(games_played: float, curve_scale: float = 5.5,
+def current_season_weight(games_played: float, curve_scale: float = 4.5,
                           max_weight: float = 0.95) -> float:
     """Return a fast early-season blend that retains a small prior all year."""
     if games_played <= 0:
@@ -38,25 +39,46 @@ def current_season_weight(games_played: float, curve_scale: float = 5.5,
 
 
 def load_current_qb_context(season: int) -> pd.DataFrame | None:
-    """Load the current expected starter and QB value for weekly lineup changes."""
+    """Load the current lineup penalty versus the preseason expectation."""
     path = Path(__file__).parent / f"qb_adjustments_{season}.csv"
     if not path.exists():
         return None
     qb = pd.read_csv(path).rename(columns={
         "Team": "team",
-        "Quarterback": "current_qb",
-        "Point Spread Rating QB": "current_qb_value",
+        "Preseason QB": "preseason_qb",
+        "Current QB": "current_qb",
+        "Yahoo Starter": "yahoo_starter",
+        "Yahoo Backup": "yahoo_backup",
+        "Starter-backup ATS": "starter_backup_value",
+        "Manual lineup delta": "manual_lineup_delta",
     })
-    needed = {"team", "current_qb", "current_qb_value"}
+    needed = {"team", "preseason_qb", "current_qb", "yahoo_starter",
+              "yahoo_backup", "starter_backup_value"}
     if not needed.issubset(qb.columns):
         return None
-    qb["current_qb_value"] = pd.to_numeric(qb["current_qb_value"], errors="coerce")
-    return qb[["team", "current_qb", "current_qb_value"]]
+    qb["starter_backup_value"] = pd.to_numeric(
+        qb["starter_backup_value"], errors="coerce"
+    ).fillna(0.0)
+    if "manual_lineup_delta" not in qb.columns:
+        qb["manual_lineup_delta"] = pd.NA
+    qb["manual_lineup_delta"] = pd.to_numeric(
+        qb["manual_lineup_delta"], errors="coerce"
+    )
+    listed_backup = (
+        qb["preseason_qb"].eq(qb["yahoo_starter"])
+        & qb["current_qb"].eq(qb["yahoo_backup"])
+    )
+    qb["lineup_delta"] = 0.0
+    qb.loc[listed_backup, "lineup_delta"] = -qb.loc[
+        listed_backup, "starter_backup_value"
+    ]
+    qb["lineup_delta"] = qb["manual_lineup_delta"].fillna(qb["lineup_delta"])
+    return qb[["team", "current_qb", "lineup_delta"]]
 
 
 def blend_with_preseason(in_season: pd.DataFrame, season: int,
-                         offense_curve_scale: float = 5.5,
-                         defense_curve_scale: float = 9.0,
+                         offense_curve_scale: float = 4.5,
+                         defense_curve_scale: float = 7.0,
                          max_weight: float = 0.95) -> pd.DataFrame:
     """Blend in-season power ratings with the preseason baseline."""
     baseline_path = RATINGS_DIR / f"ratings_{season}_preseason.csv"
@@ -67,7 +89,7 @@ def blend_with_preseason(in_season: pd.DataFrame, season: int,
     blend_cols = [c for c in ("power_rating", "off_pts", "def_pts")
                   if c in preseason.columns and c in in_season.columns]
     renames = {c: f"pre_{c}" for c in blend_cols}
-    context_cols = [c for c in ("preseason_qb", "preseason_qb_value")
+    context_cols = [c for c in ("preseason_qb", "starter_backup_value")
                     if c in preseason.columns]
     df = in_season.merge(preseason[["team"] + blend_cols + context_cols].rename(columns=renames),
                          on="team", how="left")
@@ -102,11 +124,10 @@ def blend_with_preseason(in_season: pd.DataFrame, season: int,
     # a larger part of the team rating, avoiding permanent double counting.
     current_qb = load_current_qb_context(season)
     df["qb_lineup_adjustment"] = 0.0
-    if current_qb is not None and "preseason_qb_value" in df.columns:
+    if current_qb is not None:
         df = df.merge(current_qb, on="team", how="left")
-        qb_delta = (df["current_qb_value"] - df["preseason_qb_value"]).fillna(0.0)
         df["qb_lineup_adjustment"] = (
-            qb_delta * (1 - df["offense_blend_weight"])
+            df["lineup_delta"].fillna(0.0) * (1 - df["offense_blend_weight"])
         ).round(3)
         df["off_pts"] = (df["off_pts"] + df["qb_lineup_adjustment"]).round(3)
         df["power_rating"] = (df["off_pts"] + df["def_pts"]).round(3)
@@ -130,10 +151,10 @@ def main():
     parser = argparse.ArgumentParser(description="Update NFL Power Ratings")
     parser.add_argument('--season', type=int, required=True, help='Season year')
     parser.add_argument('--output', type=str, help='Output path (default: historical_ratings/ratings_{season}.csv)')
-    parser.add_argument('--blend-scale', type=float, default=5.5,
-                        help='Offensive in-season blend scale (default: 5.5)')
-    parser.add_argument('--defense-blend-scale', type=float, default=9.0,
-                        help='Defensive in-season blend scale (default: 9.0)')
+    parser.add_argument('--blend-scale', type=float, default=4.5,
+                        help='Offensive in-season blend scale (default: 4.5)')
+    parser.add_argument('--defense-blend-scale', type=float, default=7.0,
+                        help='Defensive in-season blend scale (default: 7.0)')
     parser.add_argument('--max-in-season-weight', type=float, default=0.95,
                         help='Maximum weight on current-season data (default: 0.95)')
 

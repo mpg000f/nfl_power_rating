@@ -6,15 +6,13 @@ Methodology:
   1. Split each prior season's rating into offensive and defensive point components
   2. Blend the two prior seasons (75% last year, 25% two years ago), component-wise
   3. Reweight offense 60% / defense 40% -- offense is more repeatable year to year
-  4. Anchor projected offense 25% to the centered absolute QB rating
-  5. Rescale to the historical in-season spread (std ~4.5) so QB points mean the same
-     thing as in-season points
-  6. Apply manual QB adjustments (points) from qb_adjustments_{year}.csv
-  7. Recenter so the average team = 0
-  8. Shrink the final spread toward the mean (default x0.80) -- preseason blends
+  4. Rescale to the historical in-season spread (std ~4.5)
+  5. Apply only transition/situation adjustments from qb_adjustments_{year}.csv
+  6. Recenter so the average team = 0
+  7. Shrink the final spread toward the mean (default x0.80) -- preseason blends
      only correlate ~0.5 with the following season, so the full in-season spread
      overstates preseason certainty (backtested optimum is ~0.5; 0.8 keeps the
-     scale readable and credits the QB layer the backtest can't see)
+     scale readable)
 
 The QB file also supports two optional per-team columns:
   - "Off t1 weight": override the offensive blend weight on t-1 (e.g. 0.95 to
@@ -22,8 +20,10 @@ The QB file also supports two optional per-team columns:
   - "Situation adj": extra points for non-QB continuity shocks (coaching change,
     scheme reset), kept separate from the QB swap adjustment
 
-QB adjustment file format (same as the old nfl-qb-power-ratings.csv):
-  Team,Quarterback,Point Spread Rating QB,YoY adjustment
+The QB file records the preseason starter, current starter, and the Yahoo
+starter-to-backup spread value. The value is not an absolute QB anchor; it is
+used only by update_ratings.py when a listed backup replaces the expected
+starter. "Off t1 weight" can downweight an injury-distorted prior season.
 
 Usage:
     python generate_preseason.py --target 2026
@@ -31,7 +31,6 @@ Usage:
 """
 
 import argparse
-import numpy as np
 import pandas as pd
 from pathlib import Path
 
@@ -138,13 +137,16 @@ def load_qb_file(target_year: int) -> pd.DataFrame | None:
     qb = pd.read_csv(path)
     qb = qb.rename(columns={
         "Team": "team",
-        "Quarterback": "quarterback",
-        "Point Spread Rating QB": "qb_value",
+        "Preseason QB": "preseason_qb",
+        "Current QB": "current_qb",
+        "Yahoo Starter": "yahoo_starter",
+        "Yahoo Backup": "yahoo_backup",
+        "Starter-backup ATS": "starter_backup_value",
         "YoY adjustment": "qb_adj",
         "Situation adj": "situation_adj",
         "Off t1 weight": "off_t1_weight",
     })
-    for col, default in [("qb_value", 0.0), ("qb_adj", 0.0),
+    for col, default in [("starter_backup_value", 0.0), ("qb_adj", 0.0),
                          ("situation_adj", 0.0), ("off_t1_weight", None)]:
         if col not in qb.columns:
             qb[col] = default
@@ -152,7 +154,7 @@ def load_qb_file(target_year: int) -> pd.DataFrame | None:
             qb[col] = pd.to_numeric(qb[col], errors="coerce")
     qb["qb_adj"] = qb["qb_adj"].fillna(0.0)
     qb["situation_adj"] = qb["situation_adj"].fillna(0.0)
-    qb["qb_value"] = qb["qb_value"].fillna(qb["qb_value"].mean())
+    qb["starter_backup_value"] = qb["starter_backup_value"].fillna(0.0)
     return qb
 
 
@@ -186,10 +188,11 @@ def apply_qb_adjustments(blended: pd.DataFrame, qb: pd.DataFrame | None) -> pd.D
     """Add manual QB and situation adjustments (in points) to the blended ratings."""
     if qb is None:
         blended["qb_adj"] = 0.0
-        blended["quarterback"] = None
+        blended["preseason_qb"] = None
         return blended
 
-    df = blended.merge(qb[["team", "quarterback", "qb_adj", "situation_adj"]],
+    df = blended.merge(qb[["team", "preseason_qb", "starter_backup_value",
+                           "qb_adj", "situation_adj"]],
                        on="team", how="left")
     missing = df[df["qb_adj"].isna()]["team"].tolist()
     if missing:
@@ -205,37 +208,10 @@ def apply_qb_adjustments(blended: pd.DataFrame, qb: pd.DataFrame | None) -> pd.D
     return df
 
 
-def apply_qb_anchor(blended: pd.DataFrame, qb: pd.DataFrame | None,
-                    anchor_weight: float) -> pd.DataFrame:
-    """Shrink the team offensive projection toward its starting-QB value.
-
-    QB values are centered before blending, so they change the distribution of
-    offensive strength without moving the league average. This makes the
-    absolute QB rating an actual model input rather than a descriptive column.
-    """
-    if qb is None or anchor_weight <= 0:
-        blended["qb_value"] = np.nan
-        blended["qb_value_centered"] = 0.0
-        return blended
-
-    context = qb[["team", "qb_value"]].copy()
-    context["qb_value_centered"] = context["qb_value"] - context["qb_value"].mean()
-    df = blended.merge(context, on="team", how="left")
-    df["qb_value_centered"] = df["qb_value_centered"].fillna(0.0)
-    df["off_final"] = (
-        (1 - anchor_weight) * df["off_final"]
-        + anchor_weight * df["qb_value_centered"]
-    )
-    df["power_rating"] = df["off_final"] + df["def_final"]
-    print(f"  Anchored offense {anchor_weight:.0%} to absolute QB value")
-    return df
-
-
 def build_preseason_ratings(target_year: int,
                             weights: tuple = (0.75, 0.25),
                             off_weight: float = 0.60,
-                            shrink: float = 0.80,
-                            qb_anchor_weight: float = 0.25) -> pd.DataFrame:
+                            shrink: float = 0.80) -> pd.DataFrame:
     print(f"\nGenerating preseason {target_year} NFL ratings...")
 
     blended = blend_ratings(target_year, weights)
@@ -252,9 +228,6 @@ def build_preseason_ratings(target_year: int,
     blended["def_final"] = 2 * (1 - off_weight) * blended["def_pts"]
     blended["power_rating"] = blended["off_final"] + blended["def_final"]
     print(f"  Reweighted components: {off_weight:.0%} offense / {1 - off_weight:.0%} defense")
-
-    # Absolute QB quality stabilizes the noisier team-offense projection.
-    blended = apply_qb_anchor(blended, qb, qb_anchor_weight)
 
     # Rescale the blend back to the in-season spread before adding QB points,
     # so a +2 QB adjustment is worth the same as 2 points in-season.
@@ -297,8 +270,8 @@ def build_preseason_ratings(target_year: int,
         "ties": 0,
         "off_pts": df["off_final"].round(2),
         "def_pts": df["def_final"].round(2),
-        "preseason_qb": df.get("quarterback"),
-        "preseason_qb_value": df.get("qb_value"),
+        "preseason_qb": df.get("preseason_qb"),
+        "starter_backup_value": df.get("starter_backup_value"),
     })
     for col in STAT_COLS:
         output[col] = df[col].round(3)
@@ -316,8 +289,6 @@ def main():
                         help="Blend weights for years t-1,t-2 (default: 0.75,0.25)")
     parser.add_argument("--off-weight", type=float, default=0.60,
                         help="Offense share of the off/def reweight (default: 0.60)")
-    parser.add_argument("--qb-anchor-weight", type=float, default=0.25,
-                        help="Share of preseason offense anchored to absolute QB value (default: 0.25)")
     parser.add_argument("--shrink", type=float, default=0.80,
                         help="Final spread compression factor (default: 0.80)")
     args = parser.parse_args()
@@ -328,7 +299,7 @@ def main():
         return
 
     ratings = build_preseason_ratings(args.target, weights, args.off_weight,
-                                      args.shrink, args.qb_anchor_weight)
+                                      args.shrink)
 
     # Current-display ratings (overwritten by in-season ratings once games start)
     output_path = RATINGS_DIR / f"ratings_{args.target}.csv"
